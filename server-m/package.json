@@ -1,0 +1,15 @@
+{
+  "name": "server-m",
+  "version": "1.0.0",
+  "description": "a resource server that receives encrypted file uploads from Server E, stores them, and serves them to the Frontend",
+  "main": "index.js",
+  "scripts": {
+    "start": "node proxy",
+    "test": "node test"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.88.0"
+  }
+}
