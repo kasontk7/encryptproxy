@@ -17,6 +17,9 @@ const mime = require("mime");
 const multer = require('multer');
 const sqlite3 = require('sqlite3').verbose();
 const path = require("path");
+const cors = require('cors');
+
+app.use(cors());
 
 const data = {
   1: "NYT.txt",
@@ -37,6 +40,9 @@ var port = 8080; // set our port
 const db = new sqlite3.Database('database.db');
 db.serialize(() => {
   db.run('CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, fileName TEXT)');
+  // Initialize the database based on the current contents of the uploads folder
+  // (We don't files to appear from last usage of db)
+  resetDatabaseFromUploadsFolder();
 });
 
 // Multer Configuration
@@ -48,11 +54,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-
-// var router = express.Router();              // get an instance of the express Router
-// // REGISTER OUR ROUTES -------------------------------
-// // all of our routes will be prefixed with /api
-// app.use('/api', router);
 
 // ROUTES FOR OUR API
 // =============================================================================
@@ -93,6 +94,32 @@ app.get('/api/files', (req, res) => {
     res.status(200).json(files);
   });
 });
+
+function resetDatabaseFromUploadsFolder() {
+  const uploadFolderPath = path.join(__dirname, 'uploads');
+
+  fs.readdir(uploadFolderPath, (err, files) => {
+    if (err) {
+      console.error('Error reading upload folder:', err);
+      return;
+    }
+
+    db.run('DELETE FROM files', (err) => {
+      if (err) {
+        console.error('Error deleting data from the database:', err);
+        return;
+      }
+
+      files.forEach((fileName) => {
+        db.run('INSERT INTO files (fileName) VALUES (?)', [fileName], (err) => {
+          if (err) {
+            console.error('Error inserting file data into the database:', err);
+          }
+        });
+      });
+    });
+  });
+}
 
 // START THE SERVER
 // =============================================================================

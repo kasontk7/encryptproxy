@@ -1,14 +1,12 @@
 import React from 'react';
-import './App.css';
-import apolloClient from './graphql';
-import { ApolloProvider } from 'react-apollo';
-import Root from './Root';
+import FileTransferComponent from './FileTransferComponent';
 
-const App = () => {
+const App: React.FC = () => {
   return (
-    <ApolloProvider client={apolloClient}>
-      <Root />
-    </ApolloProvider>
+    <div>
+      <h1>File Transfer App</h1>
+      <FileTransferComponent />
+    </div>
   );
 };
 
