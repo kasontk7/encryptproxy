@@ -21,6 +21,8 @@ const cors = require('cors');
 
 app.use(cors());
 
+let sharedSecret;
+
 const data = {
   1: "NYT.txt",
   2: "patreon.mp4",
@@ -95,6 +97,16 @@ app.get('/api/files', (req, res) => {
   });
 });
 
+app.post('/api/exchange-keys', (req, res) => {
+  const frontendPublicKey = Buffer.from(req.body.publicKey,'base64');
+  const ecdhCurve = crypto.createECDH("secp521r1");
+  ecdhCurve.generateKeys();
+  const backendPublicKeyBuffer = ecdhCurve.getPublicKey();
+  sharedSecret = ecdhCurve.computeSecret(frontendPublicKey);
+  // Send the backend's public key to the frontend
+  res.json({ publicKey: backendPublicKeyBuffer.toString("base64") });
+});
+
 function resetDatabaseFromUploadsFolder() {
   const uploadFolderPath = path.join(__dirname, 'uploads');
 
@@ -119,6 +131,14 @@ function resetDatabaseFromUploadsFolder() {
       });
     });
   });
+}
+
+function encryptData(data, key) {
+
+}
+
+function decryptData(data, key) {
+
 }
 
 // START THE SERVER

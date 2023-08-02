@@ -1,17 +1,24 @@
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import axios from 'axios';
+import { createCipheriv, createECDH, randomBytes } from 'crypto-browserify';
 
 interface FileTransferComponentProps {}
 
 interface FileTransferComponentState {
   selectedFile: File | null;
   files: string[];
+  publicKey: string | null;
+  privateKey: CryptoKey | null;
+  sharedSecret: Buffer | null;
 }
 
 const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
   const [state, setState] = useState<FileTransferComponentState>({
     selectedFile: null,
     files: [],
+    publicKey: null,
+    privateKey: null,
+    sharedSecret: null,
   });
 
   const { selectedFile, files } = state;
@@ -72,10 +79,41 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
     }
   };
 
+  const generateKeys = async () => {
+    try {
+        const ecdhCurve = await createECDH("secp521r1");
+        ecdhCurve.generateKeys();
+        const frontendPublicKeyBuffer = ecdhCurve.getPublicKey();
+        const response = await axios.post(`${proxyUrl}/api/exchange-keys`, {
+            publicKey: frontendPublicKeyBuffer.toString("base64"),
+        });
+        const backendPublicKey = Buffer.from(response.data.publicKey,'base64');
+        const sharedSecret = ecdhCurve.computeSecret(backendPublicKey);
+        setState({ ...state,
+            sharedSecret: sharedSecret,
+        });
+    } catch (error) {
+        alert('Failed to generate key pair.');
+    }
+  };
+
   useEffect(() => {
+    generateKeys();
     fetchFiles();
     // eslint-disable-next-line
   }, []);
+
+  const encryptData = (data: FormData) => {
+    // const iv = randomBytes(16);
+    // const cipher = createCipheriv('aes-256-cbc', state.sharedSecret, iv);
+    // const encryptedContent = Buffer.concat([cipher.update(fileContent, 'utf8'), cipher.final()]);
+    // return { encryptedContent: encryptedContent.toString('base64'), iv: iv.toString('hex') };
+
+  }
+  
+  const decryptData = (data: FormData, key: string) => {
+  
+  }
 
   return (
     <div>
