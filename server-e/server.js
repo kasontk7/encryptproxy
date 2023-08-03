@@ -50,7 +50,7 @@ db.serialize(() => {
 // =============================================================================
 // Upload File Endpoint
 app.post('/api/upload', (req, res) => {
-  const encryptedFile = req.body.data;
+  const encryptedFile = Buffer.from(req.body.data, 'base64');
   const iv = Buffer.from(req.body.iv, 'base64');
   const authTag = Buffer.from(req.body.authTag, 'base64');
   const decryptedFile = decryptData(encryptedFile, iv, authTag);
@@ -77,11 +77,19 @@ app.get('/api/download/:fileName', (req, res) => {
   const fileName = req.params.fileName;
   const filePath = path.join(__dirname, 'uploads', fileName);
 
-  res.download(filePath, fileName, (err) => {
+  fs.readFile(filePath, (err, fileContent) => {
     if (err) {
-      console.error('Error downloading the file:', err);
-      res.status(500).json({ error: 'Internal Server Error' });
+      console.error('Error reading the file:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
     }
+    const iv = crypto.randomBytes(16);
+    const { authTag, encryptedData } = encryptData(fileContent, iv);
+
+    res.status(200).json({ 
+      authTag: authTag.toString('base64'),
+      data: encryptedData.toString('base64'),
+      iv: iv.toString('base64'),
+    });
   });
 });
 
@@ -105,7 +113,7 @@ app.post('/api/exchange-keys', (req, res) => {
   const sharedSecretKey = ecdhCurve.computeSecret(frontendPublicKey);
   sharedSecret = crypto.createHmac('sha256', sharedSecretKey).update('encryption key').digest();
   // Send the backend's public key to the frontend
-  res.json({ publicKey: backendPublicKeyBuffer.toString('base64') });
+  res.status(200).json({ publicKey: backendPublicKeyBuffer.toString('base64') });
 });
 
 function resetDatabaseFromUploadsFolder() {
@@ -134,15 +142,21 @@ function resetDatabaseFromUploadsFolder() {
   });
 }
 
-function encryptData(data, key) {
-
+function encryptData(data, iv) {
+  const cipher = crypto.createCipheriv('aes-256-gcm', sharedSecret, iv); 
+  let encryptedData = Buffer.concat([
+      cipher.update(data),
+      cipher.final(),
+      ]);
+  const authTag = cipher.getAuthTag();
+  return { authTag, encryptedData };
 }
 
 function decryptData(data, iv, authTag) {
   const decipher = crypto.createDecipheriv('aes-256-gcm', sharedSecret, iv);
   decipher.setAuthTag(authTag);
   let decryptedFile = Buffer.concat([
-    decipher.update(Buffer.from(data, 'base64')),
+    decipher.update(data),
     decipher.final(),
   ]);
   return decryptedFile;

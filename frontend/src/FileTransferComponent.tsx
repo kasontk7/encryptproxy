@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import axios from 'axios';
-import { createCipheriv, createECDH, randomBytes, createHmac } from 'crypto-browserify';
+import { createCipheriv, createDecipheriv, createECDH, randomBytes, createHmac } from 'crypto-browserify';
 
 interface FileTransferComponentProps {}
 
@@ -50,12 +50,13 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
 
   const handleDownload = async (fileName: string) => {
     try {
-      const response = await axios.get(`${proxyUrl}/api/download/${fileName}`, {
-        responseType: 'blob',
-      });
-
+      const response = await axios.get(`${proxyUrl}/api/download/${fileName}`);
+			const encryptedFile = Buffer.from(response.data.data, 'base64');
+			const iv = Buffer.from(response.data.iv, 'base64');
+			const authTag = Buffer.from(response.data.authTag, 'base64');
+			const decryptedFile = decryptData(encryptedFile, iv, authTag);
       // Create a download link and trigger the download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([decryptedFile]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', fileName);
@@ -63,6 +64,7 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
       link.click();
       document.body.removeChild(link);
     } catch (error) {
+			alert(error);
       alert('Failed to download the file.');
     }
   };
@@ -103,7 +105,7 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
 			setState({ ...state, sharedSecret: encryptionKey, files: newFiles });
 		}
     startup();
-  });
+  }, []);
 
   const encryptData = async (file: File, iv: Buffer) => {
     const formDataBuffer = await readFileAsBuffer(file);
@@ -116,8 +118,14 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
     return { authTag, encryptedData } ;
   }
   
-  const decryptData = (data: FormData, key: string) => {
-  
+  const decryptData = (data: Buffer, iv: Buffer, authTag: Buffer) => {
+		const decipher = createDecipheriv('aes-256-gcm', sharedSecret, iv);
+  	decipher.setAuthTag(authTag);
+  	let decryptedFile = Buffer.concat([
+			decipher.update(data),
+			decipher.final(),
+		]);
+  	return decryptedFile;
   }
 
   const readFileAsBuffer = (file: File): Promise<Buffer> => {
