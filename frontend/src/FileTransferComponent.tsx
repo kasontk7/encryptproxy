@@ -38,8 +38,8 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
           filename: selectedFile.name,
         });
         alert('File uploaded successfully!');
-        setState({ ...state, selectedFile: null });
-        fetchFiles();
+				const newFiles = await fetchFiles();
+        setState({ ...state, selectedFile: null, files: newFiles });
       } catch (error) {
         alert('Failed to upload the file.');
       }
@@ -68,15 +68,18 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
   };
 
   const fetchFiles = async () => {
+		let newFiles = []
     try {
       const response = await axios.get(`${proxyUrl}/api/files`);
-      setState({ ...state, files: response.data });
+			newFiles = response.data;
     } catch (error) {
       alert('Failed to fetch files.');
     }
+		return newFiles;
   };
 
   const generateKeys = async () => {
+		let encryptionKey = Buffer.from('');
     try {
         const ecdhCurve = await createECDH('secp521r1'); // await or no?
         ecdhCurve.generateKeys();
@@ -86,18 +89,21 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
         });
         const backendPublicKey = Buffer.from(response.data.publicKey,'base64');
         const sharedSecretKey = ecdhCurve.computeSecret(backendPublicKey);
-        const encryptionKey = createHmac('sha256', sharedSecretKey).update('encryption key').digest();
-        setState({ ...state,
-            sharedSecret: encryptionKey,
-        });
+        encryptionKey = createHmac('sha256', sharedSecretKey).update('encryption key').digest();
     } catch (error) {
         alert('Failed to generate key pair.');
     }
+		return encryptionKey;
   };
 
   useEffect(() => {
-    generateKeys();
-  }, []);
+		const startup = async () => {
+			const encryptionKey = await generateKeys();
+			const newFiles = await fetchFiles();
+			setState({ ...state, sharedSecret: encryptionKey, files: newFiles });
+		}
+    startup();
+  });
 
   const encryptData = async (file: File, iv: Buffer) => {
     const formDataBuffer = await readFileAsBuffer(file);
