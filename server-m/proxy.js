@@ -4,9 +4,9 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-
 const app = express();
 app.use(cors());
+
 const port = 3001;
 const backendUrl = 'http://localhost:8080';
 const uploadsPath = path.join(__dirname, 'uploads');
@@ -43,23 +43,27 @@ app.post('/api/upload', async (req, res) => {
 // Intercept the '/api/download/:fileName' endpoint
 app.get('/api/download/:fileName', async (req, res) => {
 	const fileName = req.params.fileName;
-	const response = await axios.get(`${backendUrl}/api/download/${fileName}`);
-	const { data, iv, authTag } = response.data;
+	try {
+		const response = await axios.get(`${backendUrl}/api/download/${fileName}`);
+		const { data, iv, authTag } = response.data;
 
-	// Store the encrypted file in the downloads folder
-	const filePath = path.join(downloadsPath, fileName);
-	fs.writeFile(filePath, data, 'binary', (err) => {
-		if (err) {
-			console.error('Error writing file to disk:', err);
-			return res.status(500).json({ error: 'Failed to save file in proxy layer' });
-		}
-		res.status(200).json({
-			authTag: authTag,
-			data: data,
-			iv: iv,
-			message: 'Encrypted data from download stored successfully!'
+		// Store the encrypted file in the downloads folder
+		const filePath = path.join(downloadsPath, fileName);
+		fs.writeFile(filePath, data, 'binary', (err) => {
+			if (err) {
+				console.error('Error writing file to disk:', err);
+				return res.status(500).json({ error: 'Failed to save file in proxy layer' });
+			}
+			res.status(200).json({
+				authTag: authTag,
+				data: data,
+				iv: iv,
+				message: 'Encrypted data from download stored successfully!'
+			});
 		});
-	});
+	} catch (error) {
+		res.status(500).json({ error: 'Failed to download from the backend server' });
+	}
 });
 
 // Intercept exchange keys

@@ -1,15 +1,5 @@
-// server.js
-
-//tutorials:
-//express: https://scotch.io/tutorials/build-a-restful-api-using-node-and-express-4
-//sqlite3: http://www.sqlitetutorial.net/sqlite-nodejs/
-
-// BASE SETUP
-// =============================================================================
-
-// call the packages we need
-var express = require("express"); // call express
-var app = express(); // define our app using express
+var express = require("express");
+var app = express();
 var bodyParser = require("body-parser");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -17,32 +7,19 @@ const mime = require("mime");
 const sqlite3 = require('sqlite3').verbose();
 const path = require("path");
 const cors = require('cors');
-
 app.use(cors());
-
-let sharedSecret;
-
-const data = {
-	1: "NYT.txt",
-	2: "patreon.mp4",
-	3: "Earth.jpg",
-	4: "big.txt",
-	5: "png-test.png"
-};
-
-// configure app to use bodyParser()
-// this will let us get the data from a POST
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(bodyParser.json({limit: '50mb'}));
 
-var port = 8080; // set our port
+let sharedSecret;
+var port = 8080;
 
 // SQLite Database Setup
 const db = new sqlite3.Database('database.db');
 db.serialize(() => {
 	db.run('CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, fileName TEXT)');
 	// Initialize the database based on the current contents of the uploads folder
-	// (We don't files to appear from last usage of db)
+	// (If user manually deletes files, we don't want them to appear in db)
 	resetDatabaseFromUploadsFolder();
 });
 
@@ -85,7 +62,6 @@ app.post('/api/upload', (req, res) => {
 	});
   });
   
-
 // Download File Endpoint
 app.get('/api/download/:fileName', (req, res) => {
 	const fileName = req.params.fileName;
@@ -119,6 +95,7 @@ app.get('/api/files', (req, res) => {
 	});
 });
 
+// Exchange Keys Endpoint
 app.post('/api/exchange-keys', (req, res) => {
 	const frontendPublicKey = Buffer.from(req.body.publicKey,'base64');
 	const ecdhCurve = crypto.createECDH('secp521r1');
