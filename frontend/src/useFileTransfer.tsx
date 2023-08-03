@@ -7,6 +7,7 @@ interface FileTransferComponentState {
     selectedFile: File | null;
     files: string[];
     sharedSecret: Buffer;
+    encryptionStatus: string;
 }
 
 export const useFileTransfer = () => {
@@ -14,8 +15,9 @@ export const useFileTransfer = () => {
         selectedFile: null,
         files: [],
         sharedSecret: Buffer.from(''),
+        encryptionStatus: '',
     });
-    const { selectedFile, files, sharedSecret } = state;
+    const { selectedFile, files, sharedSecret, encryptionStatus } = state;
     const proxyUrl = 'http://localhost:3001';
 
     const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -26,9 +28,11 @@ export const useFileTransfer = () => {
 
     const handleUpload = async () => {
         if (selectedFile) {
-            const iv = randomBytes(16);
-            const { authTag, encryptedData } = await encryptData(selectedFile, sharedSecret, iv);
             try {
+                setState({ ...state, encryptionStatus: "Encrypting" });
+                const iv = randomBytes(16);
+                const { authTag, encryptedData } = await encryptData(selectedFile, sharedSecret, iv);
+                setState({ ...state, encryptionStatus: "Uploading" });
                 await axios.post(`${proxyUrl}/api/upload`, {
                     data: encryptedData.toString('base64'),
                     iv: iv.toString('base64'),
@@ -37,12 +41,16 @@ export const useFileTransfer = () => {
                 });
                 alert('File uploaded successfully!');
                 const newFiles = await fetchFiles();
-                setState({ ...state, selectedFile: null, files: newFiles });
+                setState({ ...state, selectedFile: null, encryptionStatus: "", files: newFiles });
             } catch (error) {
+                setState({ ...state, encryptionStatus: "" });
                 if (isAxiosError(error)) {
                     const axiosError = error as AxiosError;
                     if (axiosError.response && axiosError.response.status === 409) {
                         alert('File already exists. Please try a different file.');
+                    }
+                    else if (axiosError.response && axiosError.response.status === 413) {
+                        alert('File is too large. The limit is 50MB. Please try a different file.');
                     }
                     else {
                         alert('Failed to upload the file.');
@@ -56,6 +64,7 @@ export const useFileTransfer = () => {
 
     const handleDownload = async (fileName: string) => {
         try {
+            setState({ ...state, encryptionStatus: "Decrypting" });
             const response = await axios.get(`${proxyUrl}/api/download/${fileName}`);
             const { data, iv, authTag } = response.data;
             const decryptedFile = decryptData(
@@ -71,7 +80,9 @@ export const useFileTransfer = () => {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            setState({ ...state, encryptionStatus: "" });
         } catch (error) {
+            setState({ ...state, encryptionStatus: "" });
             alert('Failed to download the file.');
         }
     };
@@ -102,5 +113,6 @@ export const useFileTransfer = () => {
         handleFileChange,
         handleUpload,
         handleDownload,
+        encryptionStatus,
     };
 };

@@ -35,8 +35,8 @@ export const generateKeys = async (proxyUrl: string): Promise<Buffer> => {
 	return encryptionKey;
 };
 
-const readFileAsBuffer = (file: File): Promise<Buffer> => {
-	return new Promise((resolve, reject) => {
+const readFileAsBuffer = async (file: File): Promise<Buffer> => {
+	return new Promise<Buffer>((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => {
 			const arrayBuffer = reader.result as ArrayBuffer;

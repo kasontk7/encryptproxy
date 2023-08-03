@@ -60,3 +60,23 @@ stream(file) -> cipher -> frontend
   - Below Expectation: Inconsistent syntax. Poor function/variable names.
   - Meets Expectation: Used a linter. Easy to understand function/variable names.
   - Exceeds Expectation: Follows best practices. Modularized code. Comments explaining non-obvious trade-offs/future breakage. Has some test coverage for the happy path.
+
+
+├── src
+│   ├── App.test.tsx
+│   ├── App.tsx
+│   ├── EncryptionStatus.tsx
+│   ├── FileList.tsx
+│   ├── FileTransferComponent.css
+│   ├── FileTransferComponent.tsx
+│   ├── FileUpload.tsx
+│   ├── crypto.d.ts
+│   ├── encryptionUtils.ts
+│   ├── index.css
+│   ├── index.tsx
+│   ├── react-app-env.d.ts
+│   ├── serviceWorker.ts
+│   ├── setupTests.ts
+│   └── useFileTransfer.tsx
+
+├── server.js

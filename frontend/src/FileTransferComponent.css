@@ -57,3 +57,25 @@ h1 {
   border-radius: 5px;
   cursor: pointer;
 }
+
+.encryption-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+}
+
+.loading-effect {
+  font-size: 18px;
+  font-weight: bold;
+  animation: loading 1.2s infinite;
+}
+
+@keyframes loading {
+  0%, 100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
