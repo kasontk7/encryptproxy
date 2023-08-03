@@ -1,27 +1,23 @@
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import axios from 'axios';
-import { createCipheriv, createECDH, randomBytes } from 'crypto-browserify';
+import { createCipheriv, createECDH, randomBytes, createHmac } from 'crypto-browserify';
 
 interface FileTransferComponentProps {}
 
 interface FileTransferComponentState {
   selectedFile: File | null;
   files: string[];
-  publicKey: string | null;
-  privateKey: CryptoKey | null;
-  sharedSecret: Buffer | null;
+  sharedSecret: Buffer;
 }
 
 const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
   const [state, setState] = useState<FileTransferComponentState>({
     selectedFile: null,
     files: [],
-    publicKey: null,
-    privateKey: null,
-    sharedSecret: null,
+    sharedSecret: Buffer.from(""),
   });
 
-  const { selectedFile, files } = state;
+  const { selectedFile, files, sharedSecret } = state;
   const proxyUrl = 'http://localhost:3001';
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -32,14 +28,15 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
 
   const handleUpload = async () => {
     if (selectedFile) {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
+      const iv = randomBytes(16);
+      const { authTag, encryptedData } = await encryptData(selectedFile, iv);
       try {
-        await axios.post(`${proxyUrl}/api/upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+        await axios.post(`${proxyUrl}/api/upload`, {
+          data: encryptedData.toString('base64'),
+          iv: iv.toString('base64'),
+          authTag: authTag.toString('base64'),
+          filename: selectedFile.name,
         });
-
         alert('File uploaded successfully!');
         setState({ ...state, selectedFile: null });
         fetchFiles();
@@ -81,16 +78,17 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
 
   const generateKeys = async () => {
     try {
-        const ecdhCurve = await createECDH("secp521r1");
+        const ecdhCurve = await createECDH('secp521r1'); // await or no?
         ecdhCurve.generateKeys();
         const frontendPublicKeyBuffer = ecdhCurve.getPublicKey();
         const response = await axios.post(`${proxyUrl}/api/exchange-keys`, {
-            publicKey: frontendPublicKeyBuffer.toString("base64"),
+            publicKey: frontendPublicKeyBuffer.toString('base64'),
         });
         const backendPublicKey = Buffer.from(response.data.publicKey,'base64');
-        const sharedSecret = ecdhCurve.computeSecret(backendPublicKey);
+        const sharedSecretKey = ecdhCurve.computeSecret(backendPublicKey);
+        const encryptionKey = createHmac('sha256', sharedSecretKey).update('encryption key').digest();
         setState({ ...state,
-            sharedSecret: sharedSecret,
+            sharedSecret: encryptionKey,
         });
     } catch (error) {
         alert('Failed to generate key pair.');
@@ -99,21 +97,35 @@ const FileTransferComponent: React.FC<FileTransferComponentProps> = () => {
 
   useEffect(() => {
     generateKeys();
-    fetchFiles();
-    // eslint-disable-next-line
   }, []);
 
-  const encryptData = (data: FormData) => {
-    // const iv = randomBytes(16);
-    // const cipher = createCipheriv('aes-256-cbc', state.sharedSecret, iv);
-    // const encryptedContent = Buffer.concat([cipher.update(fileContent, 'utf8'), cipher.final()]);
-    // return { encryptedContent: encryptedContent.toString('base64'), iv: iv.toString('hex') };
-
+  const encryptData = async (file: File, iv: Buffer) => {
+    const formDataBuffer = await readFileAsBuffer(file);
+    const cipher = createCipheriv('aes-256-gcm', sharedSecret, iv); 
+    let encryptedData = Buffer.concat([
+        cipher.update(formDataBuffer),
+        cipher.final(),
+        ]);
+    const authTag = cipher.getAuthTag();
+    return { authTag, encryptedData } ;
   }
   
   const decryptData = (data: FormData, key: string) => {
   
   }
+
+  const readFileAsBuffer = (file: File): Promise<Buffer> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        const fileBuffer = Buffer.from(arrayBuffer);
+        resolve(fileBuffer);
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsArrayBuffer(file);
+    });
+  };
 
   return (
     <div>

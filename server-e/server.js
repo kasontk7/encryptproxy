@@ -14,7 +14,6 @@ var bodyParser = require("body-parser");
 const fs = require("fs");
 const crypto = require("crypto");
 const mime = require("mime");
-const multer = require('multer');
 const sqlite3 = require('sqlite3').verbose();
 const path = require("path");
 const cors = require('cors');
@@ -33,8 +32,8 @@ const data = {
 
 // configure app to use bodyParser()
 // this will let us get the data from a POST
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({limit: '50mb'}));
 
 var port = 8080; // set our port
 
@@ -47,28 +46,29 @@ db.serialize(() => {
   resetDatabaseFromUploadsFolder();
 });
 
-// Multer Configuration
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-const upload = multer({ storage });
-
-
 // ROUTES FOR OUR API
 // =============================================================================
 // Upload File Endpoint
-app.post('/api/upload', upload.single('file'), (req, res) => {
-  const { filename } = req.file;
+app.post('/api/upload', (req, res) => {
+  const encryptedFile = req.body.data;
+  const iv = Buffer.from(req.body.iv, 'base64');
+  const authTag = Buffer.from(req.body.authTag, 'base64');
+  const decryptedFile = decryptData(encryptedFile, iv, authTag);
+  const filename = `${Date.now()}_${req.body.filename}`;
+  const filePath = path.join(__dirname, "uploads", filename);
 
-  db.run('INSERT INTO files (fileName) VALUES (?)', [filename], (err) => {
+  fs.writeFile(filePath, decryptedFile, 'binary', (err) => {
     if (err) {
-      console.error('Error inserting file data into the database:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+      console.error("Error writing file to disk:", err);
+      return res.status(500).json({ error: "Failed to save file" });
     }
-    res.status(200).json({ message: 'File uploaded successfully!' });
+    db.run('INSERT INTO files (fileName) VALUES (?)', [filename], (err) => {
+      if (err) {
+        console.error('Error inserting file data into the database:', err);
+        return res.status(500).json({ error: 'Failed to add file to db' });
+      }
+    });
+  res.status(200).json({ message: 'File uploaded successfully!' });
   });
 });
 
@@ -99,12 +99,13 @@ app.get('/api/files', (req, res) => {
 
 app.post('/api/exchange-keys', (req, res) => {
   const frontendPublicKey = Buffer.from(req.body.publicKey,'base64');
-  const ecdhCurve = crypto.createECDH("secp521r1");
+  const ecdhCurve = crypto.createECDH('secp521r1');
   ecdhCurve.generateKeys();
   const backendPublicKeyBuffer = ecdhCurve.getPublicKey();
-  sharedSecret = ecdhCurve.computeSecret(frontendPublicKey);
+  const sharedSecretKey = ecdhCurve.computeSecret(frontendPublicKey);
+  sharedSecret = crypto.createHmac('sha256', sharedSecretKey).update('encryption key').digest();
   // Send the backend's public key to the frontend
-  res.json({ publicKey: backendPublicKeyBuffer.toString("base64") });
+  res.json({ publicKey: backendPublicKeyBuffer.toString('base64') });
 });
 
 function resetDatabaseFromUploadsFolder() {
@@ -137,8 +138,14 @@ function encryptData(data, key) {
 
 }
 
-function decryptData(data, key) {
-
+function decryptData(data, iv, authTag) {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', sharedSecret, iv);
+  decipher.setAuthTag(authTag);
+  let decryptedFile = Buffer.concat([
+    decipher.update(Buffer.from(data, 'base64')),
+    decipher.final(),
+  ]);
+  return decryptedFile;
 }
 
 // START THE SERVER
