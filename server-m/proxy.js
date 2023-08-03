@@ -27,7 +27,7 @@ app.post('/api/upload', async (req, res) => {
 		});
 		
 	} catch (error) {
-		return res.status(500).json({ error: 'Failed to upload file' });
+		return res.status(error.response.status).json({ error: 'Failed to upload file' });
 	}
 	// Store the encrypted file in the uploads folder
 	const filePath = path.join(uploadsPath, filename);

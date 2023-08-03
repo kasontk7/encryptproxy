@@ -43,7 +43,7 @@ app.post('/api/upload', (req, res) => {
   
 	  if (row) {
 		// The filename already exists in the database
-		return res.status(400).json({ error: 'Filename already exists in the database' });
+		return res.status(409).json({ error: 'Filename already exists in the database' });
 	  }
   
 	  fs.writeFile(filePath, decryptedFile, 'binary', (err) => {

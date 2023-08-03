@@ -1,5 +1,5 @@
 import { useState, useEffect, ChangeEvent } from 'react';
-import axios from 'axios';
+import axios, { AxiosError, isAxiosError } from 'axios';
 import { randomBytes } from 'crypto-browserify';
 import { encryptData, decryptData, generateKeys } from './encryptionUtils';
 
@@ -39,7 +39,15 @@ export const useFileTransfer = () => {
                 const newFiles = await fetchFiles();
                 setState({ ...state, selectedFile: null, files: newFiles });
             } catch (error) {
-                alert('Failed to upload the file. Please make sure file does not already exist.');
+                if (isAxiosError(error)) {
+                    const axiosError = error as AxiosError;
+                    if (axiosError.response && axiosError.response.status === 409) {
+                        alert('File already exists. Please try a different file.');
+                    }
+                    else {
+                        alert('Failed to upload the file.');
+                    }
+                }
             }
         } else {
             alert('Please select a file to upload.');
@@ -49,10 +57,12 @@ export const useFileTransfer = () => {
     const handleDownload = async (fileName: string) => {
         try {
             const response = await axios.get(`${proxyUrl}/api/download/${fileName}`);
-            const encryptedFile = Buffer.from(response.data.data, 'base64');
-            const iv = Buffer.from(response.data.iv, 'base64');
-            const authTag = Buffer.from(response.data.authTag, 'base64');
-            const decryptedFile = decryptData(encryptedFile, sharedSecret, iv, authTag);
+            const { data, iv, authTag } = response.data;
+            const decryptedFile = decryptData(
+                Buffer.from(data, 'base64'), 
+                sharedSecret, 
+                Buffer.from(iv, 'base64'), 
+                Buffer.from(authTag, 'base64'));
             // Create a download link and trigger the download
             const url = window.URL.createObjectURL(new Blob([decryptedFile]));
             const link = document.createElement('a');
@@ -62,7 +72,6 @@ export const useFileTransfer = () => {
             link.click();
             document.body.removeChild(link);
         } catch (error) {
-            alert(error);
             alert('Failed to download the file.');
         }
     };
