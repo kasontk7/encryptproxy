@@ -1,5 +1,5 @@
 const express = require('express');
-const bodyParser = require("body-parser");
+const bodyParser = require('body-parser');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -25,7 +25,6 @@ app.post('/api/upload', async (req, res) => {
 			authTag: authTag,
 			filename: filename,
 		});
-		
 	} catch (error) {
 		return res.status(error.response.status).json({ error: 'Failed to upload file' });
 	}

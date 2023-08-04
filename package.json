@@ -10,5 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "yarn": "^1.22.19"
+  },
+  "devDependencies": {
+    "eslint": "^8.46.0"
   }
 }

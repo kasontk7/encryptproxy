@@ -1,15 +1,14 @@
-var express = require("express");
+var express = require('express');
 var app = express();
-var bodyParser = require("body-parser");
-const fs = require("fs");
-const crypto = require("crypto");
-const mime = require("mime");
+var bodyParser = require('body-parser');
+const fs = require('fs');
+const crypto = require('crypto');
 const sqlite3 = require('sqlite3').verbose();
-const path = require("path");
+const path = require('path');
 const cors = require('cors');
 app.use(cors());
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-app.use(bodyParser.json({limit: '50mb'}));
+app.use(bodyParser.json({ limit: '50mb' }));
 
 let sharedSecret;
 var port = 8080;
@@ -32,36 +31,36 @@ app.post('/api/upload', (req, res) => {
 	const authTag = Buffer.from(req.body.authTag, 'base64');
 	const decryptedFile = decryptData(encryptedFile, iv, authTag);
 	const filename = req.body.filename;
-	const filePath = path.join(__dirname, "uploads", filename);
-  
+	const filePath = path.join(__dirname, 'uploads', filename);
+
 	// Check if the filename already exists in the database
 	db.get('SELECT fileName FROM files WHERE fileName = ?', [filename], (err, row) => {
-	  if (err) {
-		console.error('Error querying the database:', err);
-		return res.status(500).json({ error: 'Failed to check filename in db' });
-	  }
-  
-	  if (row) {
-		// The filename already exists in the database
-		return res.status(409).json({ error: 'Filename already exists in the database' });
-	  }
-  
-	  fs.writeFile(filePath, decryptedFile, 'binary', (err) => {
 		if (err) {
-		  console.error("Error writing file to disk:", err);
-		  return res.status(500).json({ error: "Failed to save file" });
+			console.error('Error querying the database:', err);
+			return res.status(500).json({ error: 'Failed to check filename in db' });
 		}
-		db.run('INSERT INTO files (fileName) VALUES (?)', [filename], (err) => {
-		  if (err) {
-			console.error('Error inserting file data into the database:', err);
-			return res.status(500).json({ error: 'Failed to add file to db' });
-		  }
-		  res.status(200).json({ message: 'File uploaded successfully!' });
+
+		if (row) {
+			// The filename already exists in the database
+			return res.status(409).json({ error: 'Filename already exists in the database' });
+		}
+
+		fs.writeFile(filePath, decryptedFile, 'binary', (err) => {
+			if (err) {
+				console.error('Error writing file to disk:', err);
+				return res.status(500).json({ error: 'Failed to save file' });
+			}
+			db.run('INSERT INTO files (fileName) VALUES (?)', [filename], (err) => {
+				if (err) {
+					console.error('Error inserting file data into the database:', err);
+					return res.status(500).json({ error: 'Failed to add file to db' });
+				}
+				res.status(200).json({ message: 'File uploaded successfully!' });
+			});
 		});
-	  });
 	});
-  });
-  
+});
+
 // Download File Endpoint
 app.get('/api/download/:fileName', (req, res) => {
 	const fileName = req.params.fileName;
@@ -75,7 +74,7 @@ app.get('/api/download/:fileName', (req, res) => {
 		const iv = crypto.randomBytes(16);
 		const { authTag, encryptedData } = encryptData(fileContent, iv);
 
-		res.status(200).json({ 
+		res.status(200).json({
 			authTag: authTag.toString('base64'),
 			data: encryptedData.toString('base64'),
 			iv: iv.toString('base64'),
@@ -97,7 +96,7 @@ app.get('/api/files', (req, res) => {
 
 // Exchange Keys Endpoint
 app.post('/api/exchange-keys', (req, res) => {
-	const frontendPublicKey = Buffer.from(req.body.publicKey,'base64');
+	const frontendPublicKey = Buffer.from(req.body.publicKey, 'base64');
 	const ecdhCurve = crypto.createECDH('secp521r1');
 	ecdhCurve.generateKeys();
 	const backendPublicKeyBuffer = ecdhCurve.getPublicKey();
@@ -134,11 +133,11 @@ function resetDatabaseFromUploadsFolder() {
 }
 
 function encryptData(data, iv) {
-	const cipher = crypto.createCipheriv('aes-256-gcm', sharedSecret, iv); 
+	const cipher = crypto.createCipheriv('aes-256-gcm', sharedSecret, iv);
 	let encryptedData = Buffer.concat([
-			cipher.update(data),
-			cipher.final(),
-			]);
+		cipher.update(data),
+		cipher.final(),
+	]);
 	const authTag = cipher.getAuthTag();
 	return { authTag, encryptedData };
 }
@@ -156,4 +155,4 @@ function decryptData(data, iv, authTag) {
 // START THE SERVER
 // =============================================================================
 app.listen(port);
-console.log("Server running on port " + port);
+console.log('Server running on port ' + port);

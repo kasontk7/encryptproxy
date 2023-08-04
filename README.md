@@ -61,8 +61,8 @@ stream(file) -> cipher -> frontend
   - Meets Expectation: Used a linter. Easy to understand function/variable names.
   - Exceeds Expectation: Follows best practices. Modularized code. Comments explaining non-obvious trade-offs/future breakage. Has some test coverage for the happy path.
 
-
-├── src
+/frontend
+├── /src
 │   ├── App.test.tsx
 │   ├── App.tsx
 │   ├── EncryptionStatus.tsx
@@ -78,5 +78,12 @@ stream(file) -> cipher -> frontend
 │   ├── serviceWorker.ts
 │   ├── setupTests.ts
 │   └── useFileTransfer.tsx
-
+/server-e
+├── /uploads
+├── database.db
 ├── server.js
+/server-m
+├── /uploads
+├── /downloads
+├── proxy.js
+├── test.js

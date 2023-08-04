@@ -4,7 +4,7 @@ import axios from 'axios';
 export const encryptData = async (file: File, sharedSecret: Buffer, iv: Buffer): Promise<{ authTag: Buffer; encryptedData: Buffer }> => {
 	const formDataBuffer = await readFileAsBuffer(file);
 	const cipher = createCipheriv('aes-256-gcm', sharedSecret, iv);
-	let encryptedData = Buffer.concat([cipher.update(formDataBuffer), cipher.final()]);
+	const encryptedData = Buffer.concat([cipher.update(formDataBuffer), cipher.final()]);
 	const authTag = cipher.getAuthTag();
 	return { authTag, encryptedData };
 };
@@ -12,7 +12,7 @@ export const encryptData = async (file: File, sharedSecret: Buffer, iv: Buffer):
 export const decryptData = (data: Buffer, sharedSecret: Buffer, iv: Buffer, authTag: Buffer): Buffer => {
 	const decipher = createDecipheriv('aes-256-gcm', sharedSecret, iv);
 	decipher.setAuthTag(authTag);
-	let decryptedFile = Buffer.concat([decipher.update(data), decipher.final()]);
+	const decryptedFile = Buffer.concat([decipher.update(data), decipher.final()]);
 	return decryptedFile;
 };
 
