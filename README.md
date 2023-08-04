@@ -102,7 +102,7 @@ Test Run Instructions:
 - Store encrypted content in middle ware layer for proof that data is encrypted
 - Used eslint to clean code
 - Happy path testing using mocha of all 4 APIs
-- Added try/catch for blocks error handling
+- Added try/catch blocks for error handling
 - NOTE: If your team is interested in git history, I did version control using git in a private repo that I can share with the team if you’d like
 
 ### Potential Future Improvements:
