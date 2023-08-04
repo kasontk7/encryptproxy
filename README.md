@@ -87,7 +87,7 @@ Get All Files
     2. `npm install --legacy-peer-deps`
     3. `npm start`
 
-Test Run Instructions:
+#### Test Run Instructions:
 Make sure to have run the program at least once before testing
 1. From the root directory `cd server-m`
 2. `npx mocha`
